@@ -19,6 +19,18 @@ if [ "$DISPLAY_MODE" = "host" ]; then
         exit 1
     fi
     echo "Display mode: host (DISPLAY=$DISPLAY). Chromium windows open on the VM desktop."
+    # python-xlib (pyautogui) needs an Xauthority file to exist even when the
+    # X server accepts clients without a cookie (e.g. a shared desktop display).
+    export XAUTHORITY="${XAUTHORITY:-/root/.Xauthority}"
+    [ -f "$XAUTHORITY" ] || touch "$XAUTHORITY"
+    # Wait for the shared X socket (the desktop pod may still be starting).
+    SOCKET="/tmp/.X11-unix/X${DISPLAY#:}"; SOCKET="${SOCKET%%.*}"
+    i=0
+    while [ ! -S "$SOCKET" ] && [ "$i" -lt 600 ]; do
+        [ "$i" -eq 0 ] && echo "Waiting for X display socket $SOCKET ..."
+        i=$((i + 1)); sleep 1
+    done
+    [ -S "$SOCKET" ] || echo "WARNING: $SOCKET not found; Chromium will fail to open windows." >&2
     exec sh -lc "$APP_CMD"
 fi
 
