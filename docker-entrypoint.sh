@@ -28,7 +28,12 @@ fi
 # watched live from any VNC viewer (port $VNC_PORT).
 # ---------------------------------------------------------------------------
 echo "Display mode: xvfb (virtual display $XVFB_DISPLAY, screen $XVFB_SCREEN)."
-Xvfb "$XVFB_DISPLAY" -screen 0 "$XVFB_SCREEN" -nolisten tcp -ac >/tmp/xvfb.log 2>&1 &
+# X authority file: python-xlib (used by pyautogui) refuses to start without
+# one, so create a cookie the same way xvfb-run does.
+export XAUTHORITY="${XAUTHORITY:-/root/.Xauthority}"
+touch "$XAUTHORITY"
+xauth -f "$XAUTHORITY" add "$XVFB_DISPLAY" . "$(mcookie)" 2>/dev/null || true
+Xvfb "$XVFB_DISPLAY" -screen 0 "$XVFB_SCREEN" -nolisten tcp -auth "$XAUTHORITY" >/tmp/xvfb.log 2>&1 &
 XVFB_PID=$!
 export DISPLAY="$XVFB_DISPLAY"
 
@@ -55,7 +60,7 @@ if [ "$VNC_ENABLED" = "true" ]; then
         echo "WARNING: VNC has no password (set VNC_PASSWORD in .env). Do not expose port $VNC_PORT publicly." >&2
     fi
     # -forever: keep serving after a viewer disconnects; -shared: several viewers at once.
-    if x11vnc -display "$DISPLAY" -forever -shared -rfbport "$VNC_PORT" $VNC_AUTH \
+    if x11vnc -display "$DISPLAY" -auth "$XAUTHORITY" -forever -shared -rfbport "$VNC_PORT" $VNC_AUTH \
         -noxdamage -bg -o /tmp/x11vnc.log >/dev/null 2>&1; then
         echo "VNC: automation windows viewable at <host-ip>:$VNC_PORT (display $DISPLAY)."
     else
