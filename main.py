@@ -853,6 +853,12 @@ def _iter_existing_profile_dirs(limit=100):
         return
     if not base_session_dir:
         return
+    # The current-profile marker may point at a slot folder (for example
+    # "default_profile_12"). Slot discovery must always start from the ROOT
+    # profile ("default"), exactly like _get_send_profile_dir does, otherwise
+    # only that one folder is found and every other account disappears.
+    root_name = re.sub(r"(?:_profile_\d+)+$", "", base_session_dir.name) or base_session_dir.name
+    base_session_dir = base_session_dir.parent / root_name
     cap = max(1, min(int(limit or 100), 100))
     try:
         if base_session_dir.exists():
