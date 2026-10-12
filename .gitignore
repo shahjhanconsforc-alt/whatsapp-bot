@@ -1,0 +1,33 @@
+# --- Playwright / WhatsApp browser session data (never commit) ---
+playwright_profile/
+playwright_profiles/
+whatsapp_profile/
+whatsapp_Profiles/
+whatsapp_session/
+chrome_profile/
+profile_0/
+profile_1/
+profile_2/
+profile_3/
+profile_4/
+data/auth.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Runtime output ---
+*.log
+send_uploads/
+data/result.txt
+
+# --- Local DB dumps ---
+db/whatsapp_db.sql
+db/whatsapp_db.backup
+archive/whatsapp_vm_bundle.zip
+
+# --- Local secrets (copy .env.example to .env) ---
+.env
+data/session.txt

@@ -1,0 +1,10 @@
+Flask
+Werkzeug
+playwright
+openpyxl
+phonenumbers
+PyAutoGUI
+psycopg2-binary
+
+# After installing these packages, also run:
+# playwright install chromium

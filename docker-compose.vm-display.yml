@@ -1,0 +1,9 @@
+services:
+  whatsapp-app:
+    environment:
+      PLAYWRIGHT_DISPLAY_MODE: host
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: /tmp/.docker.xauth
+    volumes:
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
+      - "${XAUTHORITY_PATH:-/home/shahjhan/.Xauthority}:/tmp/.docker.xauth:ro"

@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16
+    container_name: whatsapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data"
+      - "./db/postgres_tables.sql:/docker-entrypoint-initdb.d/01-postgres_tables.sql:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  whatsapp-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whatsapp-app:latest
+    container_name: whatsapp-app
+    restart: unless-stopped
+    init: true
+    shm_size: "1gb"
+    ports:
+      - "5000:5000"
+      # VNC viewer port: connect with any VNC client to watch the automation windows
+      - "${VNC_PORT:-5900}:5900"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PGHOST: db
+      PLAYWRIGHT_DISPLAY_MODE: xvfb
+      PLAYWRIGHT_HEADLESS: "false"
+      XVFB_SCREEN: ${XVFB_SCREEN:-1440x900x24}
+      VNC_ENABLED: ${VNC_ENABLED:-true}
+      VNC_PASSWORD: ${VNC_PASSWORD:-}
+      PLAYWRIGHT_USER_DATA_DIR: /app/playwright_profile
+      PLAYWRIGHT_PROFILES_ROOT: /app/playwright_profiles
+    volumes:
+      - "./send_uploads:/app/send_uploads"
+      - "./playwright_profile:/app/playwright_profile"
+      - "./playwright_profiles:/app/playwright_profiles"
+      - "./data:/app/data"
+
+volumes:
+  postgres_data:
