@@ -24,7 +24,8 @@ if [ "$DISPLAY_MODE" = "host" ]; then
     export XAUTHORITY="${XAUTHORITY:-/root/.Xauthority}"
     [ -f "$XAUTHORITY" ] || touch "$XAUTHORITY"
     # Wait for the shared X socket (the desktop pod may still be starting).
-    SOCKET="/tmp/.X11-unix/X${DISPLAY#:}"; SOCKET="${SOCKET%%.*}"
+    DISPLAY_NUM="${DISPLAY#:}"; DISPLAY_NUM="${DISPLAY_NUM%%.*}"   # ":1.0" -> "1"
+    SOCKET="/tmp/.X11-unix/X${DISPLAY_NUM}"
     i=0
     while [ ! -S "$SOCKET" ] && [ "$i" -lt 600 ]; do
         [ "$i" -eq 0 ] && echo "Waiting for X display socket $SOCKET ..."
