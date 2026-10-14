@@ -5510,7 +5510,9 @@ def _debug_before_click(page, item, label="click", state=None):
               tag.textContent = 'AUTO: ' + (label || 'click');
               tag.style.position = 'fixed';
               tag.style.left = '12px';
-              tag.style.bottom = '12px';
+              // Lifted off the bottom-left corner so WhatsApp's profile picture
+              // in the left rail stays visible under the caption.
+              tag.style.bottom = '16%';
               tag.style.padding = '6px 10px';
               tag.style.borderRadius = '8px';
               tag.style.background = '#ff2d2d';
@@ -7425,6 +7427,13 @@ def _open_contact_chat_from_search(page, target, state=None, result_click_delay_
     except Exception:
         result_click_delay_seconds = 0
 
+    # Every number starts from the full chat list: an optional action may have
+    # left the Groups / Unread / … filter selected.
+    try:
+        _click_all_filter_before_search(page, state=state)
+    except Exception:
+        pass
+
     search_box = _locate_search_box(page, state=state, timeout_ms=5000)
     if search_box is None:
         return False, "Search box not found"
@@ -7816,6 +7825,52 @@ def _send_plain_text_single_message(
     )
     page.keyboard.press("Enter")
     return True
+
+
+def _click_all_filter_before_search(page, timeout_ms=2500, state=None):
+    """Select the "All" chat filter (the row of filters under the search bar).
+
+    Optional actions click Groups / Unread / Favourites / Archived and leave that
+    filter active; the next number search then runs inside a filtered list and
+    may show nothing. Clicking All first restores the full chat list. Best-effort:
+    a build without the filter row just continues."""
+    candidates = [
+        page.locator("#all-filter").first,
+        page.locator("#pane-side, #side").get_by_role("tab", name="All", exact=True).first,
+        page.get_by_role("tab", name="All", exact=True).first,
+        page.locator("#side button:has-text('All'), #side div[role='button']:has-text('All')").first,
+    ]
+    for item in candidates:
+        try:
+            if item.count() == 0:
+                continue
+            item.wait_for(state="visible", timeout=timeout_ms)
+            try:
+                if (item.get_attribute("aria-selected") or "").lower() == "true":
+                    return True                      # already on All
+            except Exception:
+                pass
+            if not _human_click_item(
+                page,
+                item,
+                label="Open All filter",
+                timeout_ms=timeout_ms,
+                state=state,
+            ):
+                if not _delayed_click_fallback(
+                    page,
+                    item,
+                    label="Open All filter",
+                    timeout_ms=timeout_ms,
+                    state=state,
+                ):
+                    continue
+            page.wait_for_timeout(150)
+            _send_log("Chat filter reset to All before searching.")
+            return True
+        except Exception:
+            continue
+    return False
 
 
 def _click_groups_filter_for_send(page, timeout_ms=7000, state=None):
