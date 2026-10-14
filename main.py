@@ -6482,7 +6482,7 @@ def _upload_via_menu_filechooser(page, selectors, attachment_path, label, state=
                 chooser = chooser_info.value
                 chooser.set_files(attachment_path)
                 _send_log(f"Uploaded via menu chooser: {label}")
-                return _wait_for_attachment_ready(page, timeout_ms=2600, poll_ms=80)
+                return True  # file handed to WhatsApp; the caller waits for the preview
             except Exception:
                 continue
     return False
@@ -6718,6 +6718,23 @@ def _file_input_belongs_to_sticker_item(file_input):
         return False
 
 
+def _await_attachment_preview(page, timeout_ms=20000):
+    """After a file was handed to WhatsApp, wait for the preview/send UI.
+
+    Rendering the preview of a multi-megabyte image on a small VM can take
+    well over 5 seconds. Returning too early made the caller think the upload
+    failed and try to reopen a menu that was already gone."""
+    started = time.time()
+    if _wait_for_attachment_ready(page, timeout_ms=timeout_ms, poll_ms=150):
+        _send_log(f"Attachment preview ready after {time.time() - started:.1f}s.")
+        return True
+    if _has_unsupported_attachment_notice(page):
+        _send_log("WhatsApp rejected the attachment as unsupported.")
+        return False
+    _send_log(f"Attachment preview did not appear within {timeout_ms / 1000:.0f}s after upload.")
+    return False
+
+
 def _set_files_on_menu_input(page, attachment_kind, attachment_path):
     """WhatsApp mounts hidden <input type=file> elements under the attach menu.
     Setting files directly on the right one is the most reliable upload path."""
@@ -6759,7 +6776,7 @@ def _set_files_on_menu_input(page, attachment_kind, attachment_path):
         _send_log(f"Direct file input upload failed: {exc}")
         return False
     _send_log(f"Attachment uploaded via hidden file input ({attachment_kind}).")
-    return _wait_for_attachment_ready(page, timeout_ms=3400, poll_ms=80)
+    return _await_attachment_preview(page)
 
 
 MEDIA_MENU_ITEM_SELECTORS = (
@@ -6815,7 +6832,7 @@ def _attach_file_via_plus_button(page, attachment_path, attachment_kind, state=N
             "Pick Document option",
             state=state,
         ):
-            return True
+            return _await_attachment_preview(page)
         _open_document_picker(page, state=state)
     elif attachment_kind == "audio":
         _send_log("Choosing Audio picker for audio upload")
@@ -6826,7 +6843,7 @@ def _attach_file_via_plus_button(page, attachment_path, attachment_kind, state=N
             "Pick Audio option",
             state=state,
         ):
-            return True
+            return _await_attachment_preview(page)
         if not _open_audio_picker(page, state=state):
             _send_log("Audio picker not found; refusing to use document flow for audio")
             return False
@@ -6839,7 +6856,7 @@ def _attach_file_via_plus_button(page, attachment_path, attachment_kind, state=N
             "Pick Photos & videos option",
             state=state,
         ):
-            return True
+            return _await_attachment_preview(page)
         if not _open_media_picker(page, state=state):
             _send_log("Photos & videos menu item not found in attachment menu.")
             return False
@@ -6853,7 +6870,7 @@ def _attach_file_via_plus_button(page, attachment_path, attachment_kind, state=N
     except Exception as exc:
         _send_log(f"set_input_files failed: {exc}")
         return False
-    return _wait_for_attachment_ready(page, timeout_ms=3400, poll_ms=80)
+    return _await_attachment_preview(page)
 
 
 def _paste_attachment_into_composer(page, state=None):
@@ -6932,7 +6949,7 @@ def send_single_attachment(
             # because WhatsApp may treat it as document and skip media preview.
             raise RuntimeError(
                 f"Could not attach {attachment_kind} via Photos & videos picker "
-                f"(attach menu/file input not found - see log lines above)."
+                f"(menu/file input not found, or the preview never appeared - see log lines above)."
             )
     if not attached:
         if _has_unsupported_attachment_notice(page):
